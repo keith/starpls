@@ -273,7 +273,7 @@ greeting = 1 # type: string
             1..9 "greeting": string
             12..13 "1": Literal[1]
 
-            12..13 Expected value of type "string"
+            12..13 Expression of type "Literal[1]" cannot be assigned to variable of type "string"
         "#]],
     )
 }
@@ -1100,6 +1100,32 @@ def _impl(ctx):
             108..111 "ctx": ctx
             108..119 "ctx.outputs": struct
             108..123 "ctx.outputs.qux": File
+            "#]],
+    );
+}
+
+#[test]
+fn test_simple_if_stmt() {
+    check_infer(
+        r#"
+cond = 1 < 2
+def f():
+    x = 0
+    if cond:
+        x = "less"
+    x
+"#,
+        expect![[r#"
+            1..5 "cond": bool
+            8..9 "1": Literal[1]
+            12..13 "2": Literal[2]
+            8..13 "1 < 2": bool
+            27..28 "x": Literal[0]
+            31..32 "0": Literal[0]
+            40..44 "cond": bool
+            54..55 "x": Literal["less"]
+            58..64 "\"less\"": Literal["less"]
+            69..70 "x": string | int
         "#]],
     );
 }
@@ -1205,6 +1231,37 @@ my_rule = rule(
 }
 
 #[test]
+fn test_if_elif_stmt() {
+    check_infer(
+        r#"
+cond = 1 < 2
+def f():
+    x = 0
+    if cond:
+        x = "less"
+    elif cond:
+        x = 1.
+    x
+"#,
+        expect![[r#"
+            1..5 "cond": bool
+            8..9 "1": Literal[1]
+            12..13 "2": Literal[2]
+            8..13 "1 < 2": bool
+            27..28 "x": Literal[0]
+            31..32 "0": Literal[0]
+            40..44 "cond": bool
+            54..55 "x": Literal["less"]
+            58..64 "\"less\"": Literal["less"]
+            74..78 "cond": bool
+            88..89 "x": float
+            92..94 "1.": float
+            99..100 "x": string | float | int
+        "#]],
+    );
+}
+
+#[test]
 fn test_builtin_provider() {
     check_infer(
         r#"
@@ -1236,4 +1293,80 @@ py_info.field1
             133..147 "py_info.field1": string
         "#]],
     )
+}
+
+#[test]
+fn test_if_else_stmts() {
+    check_infer(
+        r#"
+cond = 1 < 2
+def f():
+    x = 0
+    if cond:
+        x = "less"
+    else:
+        x = 1.
+    x
+"#,
+        expect![[r#"
+            1..5 "cond": bool
+            8..9 "1": Literal[1]
+            12..13 "2": Literal[2]
+            8..13 "1 < 2": bool
+            27..28 "x": Literal[0]
+            31..32 "0": Literal[0]
+            40..44 "cond": bool
+            54..55 "x": Literal["less"]
+            58..64 "\"less\"": Literal["less"]
+            83..84 "x": float
+            87..89 "1.": float
+            94..95 "x": string | float
+        "#]],
+    );
+}
+
+#[test]
+fn test_nested_if_stmts() {
+    check_infer(
+        r#"
+cond = 1 < 2
+def f():
+    x = 0
+    if cond:
+        x = "less"
+    else:
+        if cond:
+            x = 1.
+        elif cond:
+            x = b""
+        x
+        if cond:
+            x = True
+        x
+    x
+"#,
+        expect![[r#"
+            1..5 "cond": bool
+            8..9 "1": Literal[1]
+            12..13 "2": Literal[2]
+            8..13 "1 < 2": bool
+            27..28 "x": Literal[0]
+            31..32 "0": Literal[0]
+            40..44 "cond": bool
+            54..55 "x": Literal["less"]
+            58..64 "\"less\"": Literal["less"]
+            86..90 "cond": bool
+            104..105 "x": float
+            108..110 "1.": float
+            124..128 "cond": bool
+            142..143 "x": bytes
+            146..149 "b\"\"": bytes
+            158..159 "x": float | bytes | int
+            171..175 "cond": bool
+            189..190 "x": Literal[True]
+            193..197 "True": Literal[True]
+            206..207 "x": bool | float | bytes | int
+            212..213 "x": string | bool | float | bytes | int
+        "#]],
+    );
 }
