@@ -559,6 +559,10 @@ impl Ty {
         TyKind::Any.intern()
     }
 
+    pub(crate) fn never() -> Ty {
+        TyKind::Never.intern()
+    }
+
     pub(crate) fn bool() -> Ty {
         TyKind::Bool(None).intern()
     }
@@ -600,12 +604,13 @@ impl Ty {
                 TyKind::Union(tys) => {
                     tys.iter().cloned().for_each(check_unique);
                 }
+                TyKind::Never => {}
                 _ => check_unique(ty),
             }
         }
 
         match unique_tys.len() {
-            0 => TyKind::Unknown.intern(),
+            0 => TyKind::Never.intern(),
             1 => unique_tys.into_iter().next().unwrap(),
             _ => TyKind::Union(unique_tys).intern(),
         }
@@ -1172,6 +1177,8 @@ pub(crate) enum TyKind {
     /// Similar to `Unknown`, but not necessarily the result of failed
     /// type inference.
     Any,
+    /// Indicates that the corresponding expression will never be evaluated.
+    Never,
     /// The type of the predefined `None` variable.
     None,
     /// A boolean.
